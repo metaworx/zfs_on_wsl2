@@ -67,12 +67,50 @@ function prepare_kernel {
 	echo ""
 	cd $WSL_KERNEL_SOURCE_DIR
 
-	# some hardeing options in the Linux kernel are not yet preconfigured in the WSL kernel config, so we do it ourselves...
-	git apply ../../config-wsl.patch
-	cp Microsoft/config-wsl .config
+	prepare_kernel_config
 
 	make -j${PARALLEL_THREADS} prepare scripts
 	make -j${PARALLEL_THREADS} prepare
+}
+
+function prepare_kernel_config {
+	echo ""
+	echo "Preparing kernel config: $WSL_KERNEL_SOURCE_DIR/.config"
+	echo ""
+
+	cd $WSL_KERNEL_SOURCE_DIR
+
+	if [ ! -f "$WSL_KERNEL_SOURCE_DIR/.config" ]; then
+		cp Microsoft/config-wsl .config
+	fi
+
+	# some hardening options in the Linux kernel are not yet preconfigured in the WSL kernel config, so we do it ourselves...
+	# and some new settings
+
+	## explanation of the sed command used:
+	## sed -n '               # don't implicitly print input
+	## 	1h                    # put line 1 in the hold space
+	## 	1!H                   # for subsequent lines, append to hold space
+	## 	${                    # on the last line
+	## 		g                   # put the hold space in pattern space
+	## 		s/a/b/              # replace a with b
+	## 		s/c/d/              # replace c with d
+	## 		p                   # print
+	## 	}
+	## '
+	sed -n '1h;1!H;${
+			g
+			s/\(CONFIG_KCSAN=n\|# CONFIG_KCSAN is not set\|\(# end of Generic Kernel Debugging Instruments\)\)/CONFIG_KCSAN=n\n<!!>\2/
+			s/\(CONFIG_SLS=y\|# CONFIG_SLS is not set\|\(\n#\n# Power management and ACPI options\)\)/CONFIG_SLS=y\n<!!>\2/
+			s/\(CONFIG_ZERO_CALL_USED_REGS=y\|# CONFIG_ZERO_CALL_USED_REGS is not set\|\(# end of Memory initialization\)\)/CONFIG_ZERO_CALL_USED_REGS=y\n<!!>\2/
+			s/<!!>\n\?//g
+			p
+		}' \
+		.config > .config.$PPID
+
+	echo "Applied changes:"
+	diff .config .config.$PPID && echo "none." || true
+	mv .config.$PPID .config
 }
 
 function prepare_zfs {
@@ -326,6 +364,8 @@ COMMANDS:
 
     build           # Build kernel from source
 
+    kernel-config   # Prepare the kernel config
+
     install [ {KERNEL_TARGET_DIR} [ {KERNEL_SUFFIX} ] ]
                     #
                     # Install kernel to WSL2
@@ -378,6 +418,12 @@ else
 		print_info
 		shift
 		make_all
+		;;
+
+	kernel-config|"")
+		print_info
+		shift
+		prepare_kernel_config
 		;;
 
 	debs)
