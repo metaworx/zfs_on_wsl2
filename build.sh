@@ -30,9 +30,15 @@ function prepare_kernel {
 	echo "Preparing kernel"
 	cd $WSL_KERNEL_SOURCE_DIR
 
-	# some hardeing options in the Linux kernel are not yet preconfigured in the WSL kernel config, so we do it ourselves...
-	git apply ../../config-wsl.patch
 	cp Microsoft/config-wsl .config
+
+	# some hardening options in the Linux kernel are not yet preconfigured in the WSL kernel config, so we do it ourselves...
+	# and some new settings
+	sed -i \
+		-e '/^# end of Generic Kernel Debugging Instruments/i CONFIG_KCSAN=n' \
+		-e '/^# end of Kernel hacking/a CONFIG_SLS=y' \
+		-e '/^# end of Memory initialization/i CONFIG_ZERO_CALL_USED_REGS=y' \
+		.config
 
 	make -j${PARALLEL_THREADS} prepare scripts
 	make -j${PARALLEL_THREADS} prepare
