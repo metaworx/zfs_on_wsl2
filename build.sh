@@ -33,9 +33,19 @@ function prepare_kernel {
 	cp Microsoft/config-wsl .config
 
 	# some hardening options in the Linux kernel are not yet preconfigured in the WSL kernel config, so we do it ourselves...
+	# additionally apply https://boxofcables.dev/kvm-optimized-custom-kernel-wsl2-2022/
 	# and some new settings
 	sed -i \
+		-e 's/^CONFIG_RT_GROUP_SCHED=y/CONFIG_RT_GROUP_SCHED=n/' \
+		-e 's/# CONFIG_KVM_GUEST is not set/CONFIG_KVM_GUEST=y/' \
+		-e 's/# CONFIG_ARCH_CPUIDLE_HALTPOLL is not set/CONFIG_ARCH_CPUIDLE_HALTPOLL=y/' \
+		-e 's/# CONFIG_HYPERV_IOMMU is not set/CONFIG_HYPERV_IOMMU=y/' \
+		-e '/^# CONFIG_PARAVIRT_TIME_ACCOUNTING is not set/a CONFIG_PARAVIRT_CLOCK=y' \
+		-e '/^# CONFIG_CPU_IDLE_GOV_TEO is not set/a CONFIG_CPU_IDLE_GOV_HALTPOLL=y' \
+		-e '/^# end of CPU Idle/i CONFIG_HALTPOLL_CPUIDLE=y' \
+		-e 's/CONFIG_HAVE_ARCH_KCSAN=y/CONFIG_HAVE_ARCH_KCSAN=n/' \
 		-e '/^# end of Generic Kernel Debugging Instruments/i CONFIG_KCSAN=n' \
+		-e '/^# end of PTP clock support/i CONFIG_PTP_1588_CLOCK_KVM=y' \
 		-e '/^# end of Kernel hacking/a CONFIG_SLS=y' \
 		-e '/^# end of Memory initialization/i CONFIG_CC_HAS_ZERO_CALL_USED_REGS=n' \
 		-e '/^# end of Memory initialization/i CONFIG_ZERO_CALL_USED_REGS=y' \
