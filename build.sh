@@ -37,6 +37,7 @@ function prepare_kernel {
 	sed -i \
 		-e '/^# end of Generic Kernel Debugging Instruments/i CONFIG_KCSAN=n' \
 		-e '/^# end of Kernel hacking/a CONFIG_SLS=y' \
+		-e '/^# end of Memory initialization/i CONFIG_CC_HAS_ZERO_CALL_USED_REGS=n' \
 		-e '/^# end of Memory initialization/i CONFIG_ZERO_CALL_USED_REGS=y' \
 		.config
 
