@@ -225,7 +225,7 @@ function install_kernel {
 		KERNEL_TARGET_DIR=$SYSTEM_DRIVE$KERNEL_TARGET_DIR
 	fi
 
-	local "KERNEL_TARGET=$KERNEL_TARGET_DIR/$(kernel_filename {$2:-})"
+	local "KERNEL_TARGET=$KERNEL_TARGET_DIR/$(kernel_filename ${2:-})"
 	local "KERNEL_TARGET_WIN=$(wslpath -w "$KERNEL_TARGET")"
 	local "WSL_CONFIG_WIN=$(wslvar USERPROFILE)\\.wslconfig"
 	local "WSL_CONFIG=$(wslpath "$WSL_CONFIG_WIN")"
@@ -260,7 +260,7 @@ function install_kernel {
 		if grep -qe "^kernel\s*=" "$WSL_CONFIG"; then
 			# 1. replace current kernel path with new path
 			# 2. remove pre-existing line with the same setting
-			sed -i -e "s|^\s*kernel\s*=[^\n]*|;\0\nkernel=$WSL_LINE\r|i;s|^\s*;\s*kernel=\s*${WSL_LINE//\\\\\\\\/\\\\\\\\\\\?}\s*||g;/^$/d" "$WSL_CONFIG"
+			sed -i -e "s|^\s*kernel\s*=[^\n]*|# \0\nkernel=$WSL_LINE\r|i;s|^\s*#\s*kernel=\s*${WSL_LINE//\\\\\\\\/\\\\\\\\\\\?}\s*||g;/^$/d" "$WSL_CONFIG"
 		else
 			# simply add the kernel setting to the config file
 			echo "kernel=$WSL_LINE\r" >> "$WSL_CONFIG"
@@ -354,7 +354,7 @@ function kernel_filename {
 	if [[ "${1:-}" ]]; then
 		echo "${KERNEL_VERSION}_${1}.bin"
 	else
-		echo "KERNEL_VERSION.bin"
+		echo "${KERNEL_VERSION}.bin"
 	fi
 }
 
