@@ -55,8 +55,10 @@ function install_build_env {
 	echo ""
 	echo "Setting up build environment:"
 	echo ""
-	sudo apt install -yqq build-essential autoconf automake libtool gawk alien fakeroot dkms libblkid-dev uuid-dev libudev-dev libssl-dev zlib1g-dev libaio-dev libattr1-dev libelf-dev python3 python3-dev python3-setuptools python3-cffi python3-pip libffi-dev flex bison bc dwarves
+	set -x
+	sudo apt install -yqq build-essential autoconf automake libtool gawk alien fakeroot dkms libblkid-dev uuid-dev libudev-dev libssl-dev zlib1g-dev libaio-dev libattr1-dev libelf-dev python3 python3-dev python3-setuptools python3-cffi python3-pip libffi-dev flex bison bc dwarves libtirpc-dev
 	pip install distlib packaging
+	set +x
 }
 
 function prepare_kernel {
@@ -136,7 +138,9 @@ function install_kernel_modules {
 	echo "Install modules and metadata to /usr/lib:"
 	echo ""
 	cd $WSL_KERNEL_SOURCE_DIR
+	set -x
 	sudo make modules_install
+	set +x
 }
 
 function install_kernel {
@@ -216,7 +220,9 @@ function install_debs {
 	echo ""
 
 	cd "$SCRIPT_DIR"
+	set -x
 	sudo apt install 3rdparty/zfs/zfs_*_amd64.deb 3rdparty/zfs/lib*.deb libzfs4linux
+	set +x
 }
 
 function install_wslu {
@@ -225,10 +231,15 @@ function install_wslu {
 	echo ""
 	add-apt-repository -L | grep -q wslutilities/wslu
 	if (( $? != 0 )); then
+		set -x
 		sudo add-apt-repository -y ppa:wslutilities/wslu
 		sudo apt update
+		set +x
+	else
+		set -x
 	fi
 	sudo apt upgrade wslu
+	set +x
 }
 
 function make_all {
