@@ -115,6 +115,8 @@ function prepare_kernel_config {
 			s/xx\(CONFIG_FUNCTION_ALIGNMENT_4B=y\|# CONFIG_FUNCTION_ALIGNMENT_4B is not set\|\(# end of General architecture-dependent options\)\)/CONFIG_FUNCTION_ALIGNMENT_4B=y\n<!!>\2/
 			s/xx\(CONFIG_FUNCTION_ALIGNMENT_16B=y\|# CONFIG_FUNCTION_ALIGNMENT_16B is not set\|\(# end of General architecture-dependent options\)\)/CONFIG_FUNCTION_ALIGNMENT_16B=y\n<!!>\2/
 
+			s/\(CONFIG_ZFS=y\|# CONFIG_ZFS is not set\|\(\n#\n# Kernel hardening options\)\)/CONFIG_ZFS=y\n<!!>\2/
+
 			s/\(CONFIG_NFSD_V2_ACL=y\|# CONFIG_NFSD_V2_ACL is not set\|# CONFIG_NFSD_V2 is not set\)/# CONFIG_NFSD_V2 is not set/
 			s/\(CONFIG_NFSD_V3=y\|# CONFIG_NFSD_V3 is not set\)//
 
