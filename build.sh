@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.1.0
+SCRIPT_VERSION=1.1.1
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -337,7 +337,9 @@ function version_kernel {
 }
 
 function version_zfs {
-	if [ -r 3rdparty/zfs/zfs.release ]; then
+	if [ -r 3rdparty/zfs/META ]; then
+		grep Version: 3rdparty/zfs/META | cut -f2 -d: | xargs
+	elif [ -r 3rdparty/zfs/zfs.release ]; then
 		cat 3rdparty/zfs/zfs.release
 	else
 		echo "N/A"
