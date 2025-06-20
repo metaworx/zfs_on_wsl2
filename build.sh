@@ -103,6 +103,28 @@ function prepare_kernel_config {
 			s/\(CONFIG_KCSAN=n\|# CONFIG_KCSAN is not set\|\(# end of Generic Kernel Debugging Instruments\)\)/CONFIG_KCSAN=n\n<!!>\2/
 			s/\(CONFIG_SLS=y\|# CONFIG_SLS is not set\|\(\n#\n# Power management and ACPI options\)\)/CONFIG_SLS=y\n<!!>\2/
 			s/\(CONFIG_ZERO_CALL_USED_REGS=y\|# CONFIG_ZERO_CALL_USED_REGS is not set\|\(# end of Memory initialization\)\)/CONFIG_ZERO_CALL_USED_REGS=y\n<!!>\2/
+
+			s/\(CONFIG_CPU_MITIGATIONS=y\|CONFIG_SPECULATION_MITIGATIONS=y\|# CONFIG_CPU_MITIGATIONS is not set\|\(\n#\n# Power management and ACPI options\)\)/CONFIG_CPU_MITIGATIONS=y\n<!!>\2/
+			s/\(CONFIG_MITIGATION_RFDS=y\|# CONFIG_MITIGATION_RFDS is not set\|\(\n#\n# Power management and ACPI options\)\)/CONFIG_MITIGATION_RFDS=y\n<!!>\2/
+			s/\(CONFIG_MITIGATION_SPECTRE_BHI=y\|# CONFIG_MITIGATION_SPECTRE_BHI is not set\|\(\n#\n# Power management and ACPI options\)\)/CONFIG_MITIGATION_SPECTRE_BHI=y\n<!!>\2/
+
+			s/\(CONFIG_ARCH_CONFIGURES_CPU_MITIGATIONS=y\|# CONFIG_ARCH_CONFIGURES_CPU_MITIGATIONS is not set\|\(\n#\n# General architecture-dependent options\)\)/CONFIG_ARCH_CONFIGURES_CPU_MITIGATIONS=y\n<!!>\2/
+
+			s/\(CONFIG_NF_FLOW_TABLE_PROCFS=y\|# CONFIG_NF_FLOW_TABLE_PROCFS is not set\|\(\n#\n# Xtables combined modules\)\)/CONFIG_NF_FLOW_TABLE_PROCFS=y\n<!!>\2/
+
+			s/xx\(CONFIG_FUNCTION_ALIGNMENT_4B=y\|# CONFIG_FUNCTION_ALIGNMENT_4B is not set\|\(# end of General architecture-dependent options\)\)/CONFIG_FUNCTION_ALIGNMENT_4B=y\n<!!>\2/
+			s/xx\(CONFIG_FUNCTION_ALIGNMENT_16B=y\|# CONFIG_FUNCTION_ALIGNMENT_16B is not set\|\(# end of General architecture-dependent options\)\)/CONFIG_FUNCTION_ALIGNMENT_16B=y\n<!!>\2/
+
+			s/\(CONFIG_NFSD_V2_ACL=y\|# CONFIG_NFSD_V2_ACL is not set\|# CONFIG_NFSD_V2 is not set\)/# CONFIG_NFSD_V2 is not set/
+			s/\(CONFIG_NFSD_V3=y\|# CONFIG_NFSD_V3 is not set\)//
+
+			s/\(CONFIG_INIT_STACK_NONE=y\|# CONFIG_INIT_STACK_NONE is not set\)/CONFIG_INIT_STACK_NONE=y/
+			s/\(CONFIG_CC_HAS_AUTO_VAR_INIT_PATTERN=y\|# CONFIG_CC_HAS_AUTO_VAR_INIT_PATTERN is not set\|\(CONFIG_INIT_STACK_NONE=y\)\)/CONFIG_CC_HAS_AUTO_VAR_INIT_PATTERN=y\n<!!>\2/
+			s/\(CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO_BARE=y\|# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO_BARE is not set\|\(CONFIG_INIT_STACK_NONE=y\)\)/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO_BARE=y\n<!!>\2/
+			s/\(CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y\|# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set\|\(CONFIG_INIT_STACK_NONE=y\)\)/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y\n<!!>\2/
+			s/\(CONFIG_INIT_STACK_ALL_PATTERN=y\|# CONFIG_INIT_STACK_ALL_PATTERN is not set\|\(CONFIG_INIT_STACK_NONE=y\)\)/\2\n<!!># CONFIG_INIT_STACK_ALL_PATTERN is not set/
+			s/\(CONFIG_INIT_STACK_ALL_ZERO=y\|# CONFIG_INIT_STACK_ALL_ZERO is not set\|\(CONFIG_INIT_STACK_NONE=y\)\)/\2\n<!!># CONFIG_INIT_STACK_ALL_ZERO is not set/
+
 			s/<!!>\n\?//g
 			p
 		}' \
