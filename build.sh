@@ -285,13 +285,13 @@ function version_zfs {
 }
 
 function kernel_filename {
-  local "KERNEL_VERSION=kernel-$(version_kernel)_zfs-$(version_zfs)"
+	local "KERNEL_VERSION=kernel-$(version_kernel)_zfs-$(version_zfs)"
 
-  if [[ "${1:-}" ]]; then
-	  echo "${KERNEL_VERSION}_${1}.bin"
-  else
-    echo "KERNEL_VERSION.bin"
-  fi
+	if [[ "${1:-}" ]]; then
+		echo "${KERNEL_VERSION}_${1}.bin"
+	else
+		echo "KERNEL_VERSION.bin"
+	fi
 }
 
 function contains {
@@ -309,7 +309,7 @@ function starts_with {
 }
 
 function print_help {
-  cat << EOT
+	cat << EOT
 
 $(print_version)
 
@@ -369,7 +369,7 @@ else
 	case "$1" in
 
 	clean)
-	  print_info
+		print_info
 		shift
 		make_clean
 		;;
