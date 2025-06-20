@@ -100,7 +100,7 @@ function prepare_kernel_config {
 	## '
 	sed -n '1h;1!H;${
 			g
-			s/\(CONFIG_KCSAN=n\|# CONFIG_KCSAN is not set\|\(# end of Generic Kernel Debugging Instruments\)\)/CONFIG_KCSAN=n\n<!!>\2/
+			s/\(CONFIG_KCSAN=n\|# CONFIG_KCSAN is not set\|\(# end of Generic Kernel Debugging Instruments\)\)/# CONFIG_KCSAN is not set\n<!!>\2/
 			s/\(CONFIG_SLS=y\|# CONFIG_SLS is not set\|\(\n#\n# Power management and ACPI options\)\)/CONFIG_SLS=y\n<!!>\2/
 			s/\(CONFIG_ZERO_CALL_USED_REGS=y\|# CONFIG_ZERO_CALL_USED_REGS is not set\|\(# end of Memory initialization\)\)/CONFIG_ZERO_CALL_USED_REGS=y\n<!!>\2/
 
@@ -143,23 +143,8 @@ function prepare_zfs {
 	echo ""
 	cd $ZFS_SOURCE_DIR
 
-	# https://github.com/openzfs/zfs/commit/b72efb751147ab57afd1588a15910f547cb22600
-	# configure broken on Python version check if not cherry-picked. Probably not necessary in future release
-
-	# 1) check if we have the a branch that has the fix alredy (as of zfs-2.1.8)
-	if ! git merge-base --is-ancestor -- 37dbf91c8a4ba51d64eb3b35356562a95c7984ce $(git rev-parse HEAD) &>/dev/null; then
-
-		# 2) check that whe have downloaded the required commit.
-		if ! git branch master --contains b72efb751147ab57afd1588a15910f547cb22600 &>/dev/null; then
-			git fetch --all
-		fi
-
-		# 3) Apply the patch
-		git cherry-pick b72efb751147ab57afd1588a15910f547cb22600 || git commit --allow-empty
-	fi
-
 	sh autogen.sh
-	./configure --prefix=/ --libdir=/lib --includedir=/usr/include --datarootdir=/usr/share --enable-linux-builtin=yes --with-linux=$WSL_KERNEL_SOURCE_DIR --with-linux-obj=$WSL_KERNEL_SOURCE_DIR --enable-systemd
+	./configure --prefix=/ --libdir=/lib --includedir=/usr/include --datarootdir=/usr/share --enable-linux-builtin=yes --with-linux=$WSL_KERNEL_SOURCE_DIR --with-linux-obj=$WSL_KERNEL_SOURCE_DIR --enable-systemd --disable-pyzfs
 }
 
 function copy_zfs_builtin {
