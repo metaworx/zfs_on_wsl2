@@ -291,14 +291,14 @@ function install_wslu {
 	echo ""
 	echo "Installing latest WSL Utilities:"
 	echo ""
+	set +e
 	add-apt-repository -L | grep -q wslutilities/wslu
 	if (( $? != 0 )); then
-		set -x
+		set -xe
 		sudo add-apt-repository -y ppa:wslutilities/wslu
 		sudo apt update
-		set +x
 	else
-		set -x
+		set -xe
 	fi
 	sudo apt upgrade wslu
 	set +x
