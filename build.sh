@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.1.1
+SCRIPT_VERSION=1.1.3
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -54,6 +54,34 @@ function print_version {
 # Helper: returns 0 (true) if package $1 is installed, 1 otherwise
 function apt_installed {
   apt list -q "$1" --installed 2>/dev/null | grep -q -E "^$1/"
+}
+
+# Generic function to install or upgrade a package
+function install_or_upgrade {
+    local package="$1"
+
+    if command -v dpkg &>/dev/null; then
+        # Debian/Ubuntu
+        if dpkg -l | grep -q "^ii.*$package"; then
+            echo "$package already installed. Upgrading..."
+            sudo apt upgrade -y "$package"
+        else
+            echo "$package not installed. Installing..."
+            sudo apt install -y "$package"
+        fi
+    elif command -v rpm &>/dev/null; then
+        # Fedora/RHEL
+        if rpm -q "$package" &>/dev/null; then
+            echo "$package already installed. Upgrading..."
+            sudo dnf upgrade -y "$package"
+        else
+            echo "$package not installed. Installing..."
+            sudo dnf install -y "$package"
+        fi
+    else
+        echo "Unknown package manager. Cannot install $package"
+        return 1
+    fi
 }
 
 function pip_installed {
@@ -357,20 +385,71 @@ function install_debs {
 }
 
 function install_wslu {
-	echo ""
-	echo "Installing latest WSL Utilities:"
-	echo ""
-	set +e
-	add-apt-repository -L | grep -q wslutilities/wslu
-	if (( $? != 0 )); then
-		set -xe
-		sudo add-apt-repository -y ppa:wslutilities/wslu
-		sudo apt update
-	else
-		set -xe
-	fi
-	sudo apt upgrade wslu
-	set +x
+    echo ""
+    echo "Installing WSL Utilities:"
+    echo ""
+
+    # Detect distribution and version
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        DISTRO="$ID"
+        VERSION="$VERSION_ID"
+    else
+        echo "Cannot detect distribution. Skipping wslu installation."
+        return 1
+    fi
+
+    # Check for supported systems
+    case "$DISTRO" in
+        ubuntu)
+            case "$VERSION" in
+                20.04|22.04)
+                    echo "Ubuntu $VERSION detected. Using PPA for wslu (deprecated but available)."
+                    set +e
+                    add-apt-repository -L | grep -q wslutilities/wslu
+                    if (( $? != 0 )); then
+                      set -xe
+                      sudo add-apt-repository -y ppa:wslutilities/wslu
+                    else
+                      set -xe
+                    fi
+                    sudo apt update
+                    set +x
+                    install_or_upgrade wslu
+                    ;;
+                24.04|24.10|25.04)
+                    echo "Ubuntu $VERSION detected. PPA is not available. Attempting to install from universe repository."
+                    if apt-cache show wslu &>/dev/null; then
+                        sudo apt update
+                        install_or_upgrade wslu
+                    else
+                        echo "wslu package not found in repositories for Ubuntu $VERSION."
+                        echo "Skipping wslu installation. This is not a critical dependency."
+                        return 0
+                    fi
+                    ;;
+                *)
+                    echo "Unsupported Ubuntu version ($VERSION). Skipping wslu installation."
+                    return 0
+                    ;;
+            esac
+            ;;
+        debian)
+            echo "Debian detected. Installing wslu from official repositories."
+            sudo apt update
+            install_or_upgrade wslu
+            ;;
+        fedora)
+            echo "Fedora detected. Installing wslu from official repositories."
+            install_or_upgrade wslu
+            ;;
+        *)
+            echo "Unsupported distribution ($DISTRO). Skipping wslu installation."
+            return 0
+            ;;
+    esac
+
+    echo "wslu installation completed (if available for your system)."
 }
 
 function make_all {
