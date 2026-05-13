@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.2.0
+SCRIPT_VERSION=1.2.1
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -137,6 +137,7 @@ function install_build_env {
     libtirpc-dev
     libtool
     libudev-dev
+    libunwind-dev
     python3
     python3-cffi
     python3-dev
