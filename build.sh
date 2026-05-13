@@ -51,14 +51,98 @@ function print_version {
 	echo "zfs_on_linux/build.sh v$SCRIPT_VERSION"
 }
 
+# Helper: returns 0 (true) if package $1 is installed, 1 otherwise
+function apt_installed {
+  apt list -q "$1" --installed 2>/dev/null | grep -q -E "^$1/"
+}
+
+function pip_installed {
+  pip show "$pkg" &>/dev/null
+}
+
+function check_python_paths {
+    echo ""
+    echo "Checking Python paths (sysconfig, distutils, Debian layout)..."
+    echo ""
+
+    local pycheck_script="${SCRIPT_DIR}/3rdparty/python_path_evaluation.sh"
+    if [[ ! -x "$pycheck_script" ]]; then
+        echo "ERROR: Python evaluation script not found or not executable: $pycheck_script"
+        exit 1
+    fi
+
+    # Run the script – it will exit with non‑zero on critical failures
+    "$pycheck_script"
+    echo ""
+    echo "Python environment looks good."
+}
+
 function install_build_env {
-	echo ""
-	echo "Setting up build environment:"
-	echo ""
-	set -x
-	sudo apt install -yqq build-essential autoconf automake libtool gawk alien fakeroot dkms libblkid-dev uuid-dev libudev-dev libssl-dev zlib1g-dev libaio-dev libattr1-dev libelf-dev python3 python3-dev python3-setuptools python3-cffi python3-pip libffi-dev flex bison bc dwarves libtirpc-dev
-	pip install distlib packaging
-	set +x
+  echo ""
+  echo "Setting up build environment:"
+  echo ""
+
+  # List of required packages
+  local packages=(
+    alien
+    autoconf
+    automake
+    bc
+    bison
+    build-essential
+    dkms
+    dwarves
+    fakeroot
+    flex
+    gawk
+    libaio-dev
+    libattr1-dev
+    libblkid-dev
+    libelf-dev
+    libffi-dev
+    libssl-dev
+    libtirpc-dev
+    libtool
+    libudev-dev
+    python3
+    python3-cffi
+    python3-dev
+    python3-pip
+    python3-setuptools
+    uuid-dev
+    zlib1g-dev
+  )
+
+  local to_install=()
+
+  for pkg in "${packages[@]}"; do
+    if ! apt_installed "$pkg"; then
+      to_install+=("$pkg")
+    fi
+  done
+
+  if [ ${#to_install[@]} -gt 0 ]; then
+    sudo apt install -yqq "${to_install[@]}"
+  else
+    echo "All required packages are already installed."
+  fi
+
+  # ---- Python packages (pip) ----
+  local pip_packages=("distlib" "packaging")
+  local pip_to_install=()
+
+  for pkg in "${pip_packages[@]}"; do
+    # pip show exits 0 if the package is installed, 1 otherwise
+    if ! pip_installed "$pkg"; then
+      pip_to_install+=("$pkg")
+    fi
+  done
+
+  if [ ${#pip_to_install[@]} -gt 0 ]; then
+    pip install "${pip_to_install[@]}"
+  else
+    echo "All required pip packages are already installed."
+  fi
 }
 
 function prepare_kernel {
@@ -144,7 +228,7 @@ function prepare_zfs {
 	cd $ZFS_SOURCE_DIR
 
 	sh autogen.sh
-	./configure --prefix=/ --libdir=/lib --includedir=/usr/include --datarootdir=/usr/share --enable-linux-builtin=yes --with-linux=$WSL_KERNEL_SOURCE_DIR --with-linux-obj=$WSL_KERNEL_SOURCE_DIR --enable-systemd --disable-pyzfs
+	./configure --prefix=/ --libdir=/lib --includedir=/usr/include --datarootdir=/usr/share --enable-linux-builtin=yes --with-linux=$WSL_KERNEL_SOURCE_DIR --with-linux-obj=$WSL_KERNEL_SOURCE_DIR --enable-systemd
 }
 
 function copy_zfs_builtin {
@@ -291,6 +375,7 @@ function install_wslu {
 
 function make_all {
 	install_build_env
+	check_python_paths
 	prepare_kernel
 	prepare_zfs
 	copy_zfs_builtin
@@ -401,6 +486,8 @@ COMMANDS:
 
     env             # Install building environment
 
+    pycheck         # Check Python paths without doing a full build
+
     help            # Show this help
 
     info            # Show information about directories and source versions
@@ -471,6 +558,12 @@ else
 	wslu)
 		shift
 		install_wslu
+		;;
+
+	pycheck)
+		print_info
+		shift
+		check_python_paths
 		;;
 
 	-h|--help|help)
