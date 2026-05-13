@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.2.1
+SCRIPT_VERSION=1.2.2
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -202,57 +202,43 @@ function prepare_kernel_config {
 		cp Microsoft/config-wsl .config
 	fi
 
-	# some hardening options in the Linux kernel are not yet preconfigured in the WSL kernel config, so we do it ourselves...
-	# and some new settings
+	# Use the kernel’s own config tool to modify the .config file cleanly.
+	# This avoids the “override: reassigning to symbol” warnings.
+	if [ ! -x scripts/config ]; then
+		echo "ERROR: scripts/config not found. Kernel source may be incomplete."
+		exit 1
+	fi
 
-	## explanation of the sed command used:
-	## sed -n '               # don't implicitly print input
-	## 	1h                    # put line 1 in the hold space
-	## 	1!H                   # for subsequent lines, append to hold space
-	## 	${                    # on the last line
-	## 		g                   # put the hold space in pattern space
-	## 		s/a/b/              # replace a with b
-	## 		s/c/d/              # replace c with d
-	## 		p                   # print
-	## 	}
-	## '
-	sed -n '1h;1!H;${
-			g
-			s/\(CONFIG_KCSAN=n\|# CONFIG_KCSAN is not set\|\(# end of Generic Kernel Debugging Instruments\)\)/# CONFIG_KCSAN is not set\n<!!>\2/
-			s/\(CONFIG_SLS=y\|# CONFIG_SLS is not set\|\(\n#\n# Power management and ACPI options\)\)/CONFIG_SLS=y\n<!!>\2/
-			s/\(CONFIG_ZERO_CALL_USED_REGS=y\|# CONFIG_ZERO_CALL_USED_REGS is not set\|\(# end of Memory initialization\)\)/CONFIG_ZERO_CALL_USED_REGS=y\n<!!>\2/
+	# First, ensure that all dependencies are resolved
+	make olddefconfig >/dev/null 2>&1
 
-			s/\(CONFIG_CPU_MITIGATIONS=y\|CONFIG_SPECULATION_MITIGATIONS=y\|# CONFIG_CPU_MITIGATIONS is not set\|\(\n#\n# Power management and ACPI options\)\)/CONFIG_CPU_MITIGATIONS=y\n<!!>\2/
-			s/\(CONFIG_MITIGATION_RFDS=y\|# CONFIG_MITIGATION_RFDS is not set\|\(\n#\n# Power management and ACPI options\)\)/CONFIG_MITIGATION_RFDS=y\n<!!>\2/
-			s/\(CONFIG_MITIGATION_SPECTRE_BHI=y\|# CONFIG_MITIGATION_SPECTRE_BHI is not set\|\(\n#\n# Power management and ACPI options\)\)/CONFIG_MITIGATION_SPECTRE_BHI=y\n<!!>\2/
+	# Disable KCSAN (kernel concurrency sanitizer)
+	scripts/config --disable KCSAN
+	# Enable SLS (straight-line speculation)
+	scripts/config --enable SLS
+	# Enable zero-call-used-regs
+	scripts/config --enable ZERO_CALL_USED_REGS
+	# Enable CPU mitigations (mitigations for Spectre, Meltdown, etc.)
+	scripts/config --enable CPU_MITIGATIONS
+	scripts/config --enable MITIGATION_RFDS
+	scripts/config --enable MITIGATION_SPECTRE_BHI
+	scripts/config --enable ARCH_CONFIGURES_CPU_MITIGATIONS
+	# Enable NF_FLOW_TABLE_PROCFS
+	scripts/config --enable NF_FLOW_TABLE_PROCFS
+	# Enable ZFS (the main point)
+	scripts/config --enable ZFS
+	# Disable NFSD v2 (since v2 ACL is removed)
+	scripts/config --disable NFSD_V2
+	scripts/config --disable NFSD_V2_ACL
+	# Remove NFSD v3 line (it's optional, but we leave it unchanged unless explicitly disabled)
+	scripts/config --disable NFSD_V3
+	# Set stack initialisation to NONE (this will automatically disable the ALL_PATTERN/ALL_ZERO variants)
+	scripts/config --set-val INIT_STACK none
 
-			s/\(CONFIG_ARCH_CONFIGURES_CPU_MITIGATIONS=y\|# CONFIG_ARCH_CONFIGURES_CPU_MITIGATIONS is not set\|\(\n#\n# General architecture-dependent options\)\)/CONFIG_ARCH_CONFIGURES_CPU_MITIGATIONS=y\n<!!>\2/
+	# Force the changes to take effect and resolve any new dependencies
+	make olddefconfig >/dev/null 2>&1
 
-			s/\(CONFIG_NF_FLOW_TABLE_PROCFS=y\|# CONFIG_NF_FLOW_TABLE_PROCFS is not set\|\(\n#\n# Xtables combined modules\)\)/CONFIG_NF_FLOW_TABLE_PROCFS=y\n<!!>\2/
-
-			s/xx\(CONFIG_FUNCTION_ALIGNMENT_4B=y\|# CONFIG_FUNCTION_ALIGNMENT_4B is not set\|\(# end of General architecture-dependent options\)\)/CONFIG_FUNCTION_ALIGNMENT_4B=y\n<!!>\2/
-			s/xx\(CONFIG_FUNCTION_ALIGNMENT_16B=y\|# CONFIG_FUNCTION_ALIGNMENT_16B is not set\|\(# end of General architecture-dependent options\)\)/CONFIG_FUNCTION_ALIGNMENT_16B=y\n<!!>\2/
-
-			s/\(CONFIG_ZFS=y\|# CONFIG_ZFS is not set\|\(\n#\n# Kernel hardening options\)\)/CONFIG_ZFS=y\n<!!>\2/
-
-			s/\(CONFIG_NFSD_V2_ACL=y\|# CONFIG_NFSD_V2_ACL is not set\|# CONFIG_NFSD_V2 is not set\)/# CONFIG_NFSD_V2 is not set/
-			s/\(CONFIG_NFSD_V3=y\|# CONFIG_NFSD_V3 is not set\)//
-
-			s/\(CONFIG_INIT_STACK_NONE=y\|# CONFIG_INIT_STACK_NONE is not set\)/CONFIG_INIT_STACK_NONE=y/
-			s/\(CONFIG_CC_HAS_AUTO_VAR_INIT_PATTERN=y\|# CONFIG_CC_HAS_AUTO_VAR_INIT_PATTERN is not set\|\(CONFIG_INIT_STACK_NONE=y\)\)/CONFIG_CC_HAS_AUTO_VAR_INIT_PATTERN=y\n<!!>\2/
-			s/\(CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO_BARE=y\|# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO_BARE is not set\|\(CONFIG_INIT_STACK_NONE=y\)\)/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO_BARE=y\n<!!>\2/
-			s/\(CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y\|# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set\|\(CONFIG_INIT_STACK_NONE=y\)\)/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y\n<!!>\2/
-			s/\(CONFIG_INIT_STACK_ALL_PATTERN=y\|# CONFIG_INIT_STACK_ALL_PATTERN is not set\|\(CONFIG_INIT_STACK_NONE=y\)\)/\2\n<!!># CONFIG_INIT_STACK_ALL_PATTERN is not set/
-			s/\(CONFIG_INIT_STACK_ALL_ZERO=y\|# CONFIG_INIT_STACK_ALL_ZERO is not set\|\(CONFIG_INIT_STACK_NONE=y\)\)/\2\n<!!># CONFIG_INIT_STACK_ALL_ZERO is not set/
-
-			s/<!!>\n\?//g
-			p
-		}' \
-		.config > .config.$PPID
-
-	echo "Applied changes:"
-	diff .config .config.$PPID && echo "none." || true
-	mv .config.$PPID .config
+	echo "Kernel configuration updated via scripts/config."
 }
 
 function prepare_zfs {
