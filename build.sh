@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.1.3
+SCRIPT_VERSION=1.2.0
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -13,6 +13,11 @@ WSL_KERNEL_SOURCE_DIR=${SUBMODULE_PATH}/WSL2-Linux-Kernel
 ZFS_SOURCE_DIR=${SUBMODULE_PATH}/zfs
 
 PARALLEL_THREADS=$(/usr/bin/nproc --all)
+
+# Logging variables
+declare -g LOG_DIR=""
+declare -g LOG_FILE=""
+declare -gi LOG_ENABLED=1
 
 # Helper variable to print the information form print_info() only once
 declare -gi info_printed=0
@@ -521,6 +526,53 @@ function starts_with {
 	esac
 }
 
+function log_header {
+  local cmd="$1"
+
+  if [[ $LOG_ENABLED -eq 1 ]]; then
+    # Determine log file path
+    if [[ -z "$LOG_FILE" ]]; then
+        local timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+        if [[ -n "$LOG_DIR" ]]; then
+            LOG_FILE="${LOG_DIR}/${timestamp}_${cmd}.log"
+        else
+            LOG_FILE="${SCRIPT_DIR}/${timestamp}_${cmd}.log"
+        fi
+    fi
+
+    # Ensure log directory exists
+    mkdir -p "$(dirname "$LOG_FILE")"
+
+    echo "Logging to: $LOG_FILE"
+  else
+    LOG_FILE=/dev/null
+  fi
+
+  # Run the command with output captured by tee
+  {
+    echo "=== Command: $* ==="
+    echo "=== Started at: $(date) ==="
+
+    if [[ $LOG_ENABLED -eq 1 ]]; then
+      echo "=== Log file: $LOG_FILE ==="
+    fi
+
+    echo ""
+    print_info
+    echo ""
+  } | tee "$LOG_FILE"
+}
+
+function log_footer {
+  {
+    echo ""
+    echo "=== Finished at: $(date) ==="
+    echo "=== Exit code: $1 ==="
+  } | tee -a "$LOG_FILE"
+
+  [[ "$1" -ne 0 ]] && exit $1
+}
+
 function print_help {
 	cat << EOT
 
@@ -528,7 +580,7 @@ $(print_version)
 
 SYNTAX:
 
-    ./build.sh [ command [arguments] ]
+    ./build.sh [options] [ command [arguments] ]
 
 
 COMMANDS:
@@ -574,14 +626,62 @@ COMMANDS:
     version         # Show the script's version
 
 
+LOGGING OPTIONS:
+
+    --no-log        # Disable logging (output only to console)
+    --log <file>    # Write log to specified file path
+    --log-dir <path> # Write log to directory with auto-generated filename
+
+    Log files are created automatically for commands: build, kernel-config, debs, env, install, update, wslu, pycheck
+    Default log format: {ISO-date}_{command}.log in script directory
+
+
 INFO:
 EOT
 }
 
+# Parse global logging options before command
+declare -a cmd_args=()
+declare log_arg=""
+
+# Parse logging arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-log)
+            LOG_ENABLED=0
+            shift
+            ;;
+        --log)
+            if [[ -z "${2:-}" ]]; then
+                echo "ERROR: --log requires a file path argument"
+                exit 1
+            fi
+            LOG_FILE="$2"
+            LOG_ENABLED=1
+            shift 2
+            ;;
+        --log-dir)
+            if [[ -z "${2:-}" ]]; then
+                echo "ERROR: --log-dir requires a directory path argument"
+                exit 1
+            fi
+            LOG_DIR="$2"
+            LOG_ENABLED=1
+            shift 2
+            ;;
+        *)
+            cmd_args+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Reset arguments for main processing
+set -- "${cmd_args[@]}"
 
 if (( $# == 0 )); then
-	make_all
-else
+	set -- "build"
+fi
 	while (( $# > 0 )); do
 	case "$1" in
 
@@ -591,28 +691,32 @@ else
 		make_clean
 		;;
 
-	build|"")
-		print_info
+	build)
+		log_header "$1"
 		shift
-		make_all
+    make_all 2>&1 | tee -a "$LOG_FILE"
+    log_footer ${PIPESTATUS[0]}
 		;;
 
-	kernel-config|"")
-		print_info
+	kernel-config)
+		log_header "$1"
 		shift
-		prepare_kernel_config
+		prepare_kernel_config 2>&1 | tee -a "$LOG_FILE"
+    log_footer ${PIPESTATUS[0]}
 		;;
 
 	debs)
-		print_info
+		log_header "$1"
 		shift
-		install_debs
+		install_debs 2>&1 | tee -a "$LOG_FILE"
+    log_footer ${PIPESTATUS[0]}
 		;;
 
 	env)
-		print_info
+		log_header "$1"
 		shift
-		install_build_env
+		install_build_env 2>&1 | tee -a "$LOG_FILE"
+    log_footer ${PIPESTATUS[0]}
 		;;
 
 	info)
@@ -621,39 +725,47 @@ else
 		;;
 
 	install)
-		print_info
+		log_header "$@"
 		shift
-		install_kernel "$@"
-		shift
+		install_kernel "$@" 2>&1 | tee -a "$LOG_FILE"
+    log_footer ${PIPESTATUS[0]}
+    break;
 		;;
 
 	update)
-		print_info
+		log_header "$1"
 		shift
-		git pull
-		git submodule update --init --recursive --progress
+		{
+		  git pull && git submodule update --init --recursive --progress
+    } 2>&1 | tee -a "$LOG_FILE"
+    log_footer ${PIPESTATUS[0]}
 		;;
 
 	wslu)
+		log_header "$1"
 		shift
-		install_wslu
+		install_wslu 2>&1 | tee -a "$LOG_FILE"
+    log_footer ${PIPESTATUS[0]}
 		;;
 
 	pycheck)
-		print_info
+		log_header "$1"
 		shift
-		check_python_paths
+		check_python_paths 2>&1 | tee -a "$LOG_FILE"
+    log_footer ${PIPESTATUS[0]}
 		;;
 
 	-h|--help|help)
 		shift
 		print_help
 		print_info
+		break
 		;;
 
 	-V|--version|version)
 		shift
 		print_version
+		break
 		;;
 
 	*)
@@ -663,5 +775,3 @@ else
 
 	esac
 	done
-fi
-
