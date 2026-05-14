@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.2.2
+SCRIPT_VERSION=1.2.3
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -16,7 +16,7 @@ PARALLEL_THREADS=$(/usr/bin/nproc --all)
 
 # Logging variables
 declare -g LOG_DIR=""
-declare -g LOG_FILE=""
+declare -g LOG_FILE="/dev/null"
 declare -gi LOG_ENABLED=1
 
 # Helper variable to print the information form print_info() only once
@@ -156,7 +156,7 @@ function install_build_env {
   done
 
   if [ ${#to_install[@]} -gt 0 ]; then
-    sudo apt install -yqq "${to_install[@]}"
+    sudo apt install -yq "${to_install[@]}"
   else
     echo "All required packages are already installed."
   fi
@@ -295,7 +295,7 @@ function install_kernel_modules {
 }
 
 function install_kernel {
-	install_wslu
+	check_wslu || return $?
 
 	echo ""
 	echo "Installing kernel:"
@@ -372,7 +372,8 @@ function install_debs {
 
 	cd "$SCRIPT_DIR"
 	set -x
-	sudo apt install 3rdparty/zfs/zfs_*_amd64.deb 3rdparty/zfs/lib*.deb libzfs4linux
+	sudo apt install "$SCRIPT_DIR"/3rdparty/zfs/zfs_*_amd64.deb "$SCRIPT_DIR"/3rdparty/zfs/lib*.deb
+  install_or_upgrade libzfs4linux
 	set +x
 }
 
@@ -380,6 +381,14 @@ function install_wslu {
     echo ""
     echo "Installing WSL Utilities:"
     echo ""
+
+    # Check network before attempting install
+    if ! ping -c 1 8.8.8.8 &>/dev/null; then
+        echo "WARNING: No network connectivity. Cannot install wslu."
+        echo "The 'install' command requires wslvar to locate Windows paths."
+        echo "Please check your network connection and try again."
+        return 1
+    fi
 
     # Detect distribution and version
     if [ -f /etc/os-release ]; then
@@ -441,7 +450,120 @@ function install_wslu {
             ;;
     esac
 
-    echo "wslu installation completed (if available for your system)."
+}
+
+function check_wslu {
+    echo ""
+    echo "Checking WSL Utilities:"
+    echo ""
+
+    # Detect WSL version
+    local wsl_version=""
+    if uname -r | grep -q "microsoft-standard-WSL2"; then
+        wsl_version=2
+    elif uname -r | grep -q "microsoft"; then
+        wsl_version=1
+    else
+        echo "Not running under WSL. Skipping wslu setup."
+        return 0
+    fi
+
+    # Check if wslvar is already available (from a previous install or native)
+    if command -v wslvar &>/dev/null; then
+        echo "wslvar already available at $(which wslvar)"
+
+        # If it's the symlink to /init (WSL2+), it's built-in
+        if [ "$(readlink -f $(which wslvar) 2>/dev/null)" = "/init" ]; then
+            echo "wslvar is built into WSL (modern version). No installation needed."
+            return 0
+        fi
+
+        # Otherwise, it's from wslu package – check if we need to upgrade
+        if dpkg -l | grep -q "^ii.*wslu"; then
+            echo "wslu package is installed. Checking for updates..."
+            if [[ $wsl_version -eq 2 ]]; then
+                # On WSL2, wslu may be optional; only upgrade if network is available
+                if ping -c 1 8.8.8.8 &>/dev/null; then
+                    sudo apt update 2>/dev/null && install_or_upgrade wslu
+                else
+                    echo "No network connectivity. Skipping wslu upgrade."
+                fi
+            fi
+        fi
+        return 0
+    fi
+
+    # wslvar not found – need to install wslu
+    echo "wslvar not found. WSL Utilities may be missing."
+
+    # On WSL2 with modern kernel (5.15+), wslu is optional but useful
+    if [[ $wsl_version -eq 2 ]]; then
+        echo "WSL2 detected. wslu provides 'wslvar' for Windows registry access."
+        install_wslu || return $?
+    else
+        # WSL1 – definitely need wslu
+        echo "WSL1 detected. wslu is required for Windows interop."
+        install_wslu || return $?
+    fi
+
+    # Verify installation succeeded
+    if command -v wslvar &>/dev/null; then
+        echo "wslu installed successfully."
+    else
+        # Fallback if wslvar is missing
+        function wslvar() {
+            local var_name="$1"
+
+            if [[ "$var_name" == "-s" ]]; then
+                shift
+                var_name="$1"
+            fi
+
+            local result
+
+            result="$(win_env "$var_name")"
+            # Try to read from /proc/self/environ (works for some variables)
+            if [[ -n "$result"  ]]; then
+                echo "$result"
+            else
+                echo "ERROR: Cannot resolve $var_name without wslvar" 1>&2
+                return 1
+            fi
+        }
+
+        if [[ "$(wslvar -s SystemDrive)" != "C:" ]]; then
+            echo "ERROR: wslvar still not available after installation attempt."
+            echo "Please install wslu manually: sudo apt install wslu"
+            return 1
+        fi
+
+        export -f wslvar
+
+        # In check_wslu, after wslvar check
+        if ! command -v wslpath &>/dev/null; then
+            echo "ERROR: wslpath not found. This WSL installation is too old."
+            return 1
+        fi
+
+        return 0
+    fi
+}
+
+# Helper: get Windows environment variable
+win_env() {
+    local p
+    # < /dev/null is crucial, for cmd.exe not interfering with STDIN
+    if ! p=$(cd /mnt/c && "/mnt/c/Windows/System32/cmd.exe" /c "echo %$1%" < /dev/null 2>/dev/null); then
+      return $?
+    fi
+
+    p="${p%$'\r'}" # strip carriage return \r
+
+    if [[ -z "$p" ]]; then
+      return 1
+    fi
+
+    echo "$p"
 }
 
 function make_all {
@@ -518,7 +640,7 @@ function log_header {
 
   if [[ $LOG_ENABLED -eq 1 ]]; then
     # Determine log file path
-    if [[ -z "$LOG_FILE" ]]; then
+    if [[ -z "$LOG_FILE" || "$LOG_FILE" == "/dev/null" ]]; then
         local timestamp=$(date +%Y-%m-%d_%H-%M-%S)
         if [[ -n "$LOG_DIR" ]]; then
             LOG_FILE="${LOG_DIR}/${timestamp}_${cmd}.log"
