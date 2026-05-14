@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.2.3
+SCRIPT_VERSION=1.3.0
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -11,6 +11,7 @@ SUBMODULE_PATH=${SCRIPT_DIR}/3rdparty
 
 WSL_KERNEL_SOURCE_DIR=${SUBMODULE_PATH}/WSL2-Linux-Kernel
 ZFS_SOURCE_DIR=${SUBMODULE_PATH}/zfs
+ZFS_AUTO_SNAPSHOT_DIR=${SUBMODULE_PATH}/zfs-auto-snapshot
 
 PARALLEL_THREADS=$(/usr/bin/nproc --all)
 
@@ -58,7 +59,8 @@ function print_version {
 
 # Helper: returns 0 (true) if package $1 is installed, 1 otherwise
 function apt_installed {
-  apt list -q "$1" --installed 2>/dev/null | grep -q -E "^$1/"
+    local package="$1"
+    dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed'
 }
 
 # Generic function to install or upgrade a package
@@ -67,7 +69,7 @@ function install_or_upgrade {
 
     if command -v dpkg &>/dev/null; then
         # Debian/Ubuntu
-        if dpkg -l | grep -q "^ii.*$package"; then
+        if apt_installed $package; then
             echo "$package already installed. Upgrading..."
             sudo apt upgrade -y "$package"
         else
@@ -284,6 +286,45 @@ function build_zfs_enabled_kernel {
 	make -j${PARALLEL_THREADS}
 }
 
+function build_zfs_auto_snapshot {
+    echo ""
+    echo "Building zfs-auto-snapshot package (with corrected dependencies):"
+    echo ""
+
+    # Clone or update repository
+    if [[ ! -d "$ZFS_AUTO_SNAPSHOT_DIR/.git" ]]; then
+      	set -x
+        git clone https://github.com/zfsonlinux/zfs-auto-snapshot.git "$ZFS_AUTO_SNAPSHOT_DIR"
+      	set +x
+    else
+        (cd "$ZFS_AUTO_SNAPSHOT_DIR" && git pull)
+    fi
+
+   (
+   cd "$ZFS_AUTO_SNAPSHOT_DIR"
+
+    # Patch debian/control to depend on 'zfs' instead of 'zfsutils-linux'
+    if [[ -f debian/control ]]; then
+        sed -i 's/zfsutils-linux/zfs/g' debian/control
+        echo "Patched debian/control: now depends on 'zfs'."
+    else
+        echo "ERROR: debian/control not found. Cannot patch dependencies."
+        return 1
+    fi
+
+    # Build the package
+    if ! command -v dpkg-buildpackage &>/dev/null; then
+        echo "Installing build tools for debian package..."
+        install_or_upgrade -y devscripts build-essential
+    fi
+
+    # Build with -us -uc to skip signing
+    dpkg-buildpackage -us -uc -b
+
+    echo "zfs-auto-snapshot .deb packages have been built."
+    )
+}
+
 function install_kernel_modules {
 	echo ""
 	echo "Install modules and metadata to /usr/lib:"
@@ -370,10 +411,32 @@ function install_debs {
 	echo "Installing command line tools:"
 	echo ""
 
+  # Clean up any leftover custom development packages that may conflict
+  echo "Checking for leftover old ZFS development packages..."
+  for pkg in libzfs5-devel libzfs6-devel; do
+      if apt_installed "$pkg"; then
+          echo "Removing conflicting package: $pkg"
+        	set -x
+          sudo dpkg --remove --force-remove-reinstreq "$pkg" 2>/dev/null || true
+        	set +x
+      fi
+  done
+
 	cd "$SCRIPT_DIR"
+
+	# Enable nullglob so non-matching globs expand to nothing
+  shopt -s nullglob
+	local -a args=( "$SCRIPT_DIR"/3rdparty/zfs/zfs_*_amd64.deb "$SCRIPT_DIR"/3rdparty/zfs/lib*.deb "$SCRIPT_DIR"/3rdparty/zfs-auto-snapshot/zfs-auto-snapshot*.deb )
+  shopt -u nullglob
+
+  if [[ ${#args[@]} -eq 0 ]]; then
+      echo "ERROR: No .deb files found to install!"
+      exit 1
+  fi
+
 	set -x
-	sudo apt install "$SCRIPT_DIR"/3rdparty/zfs/zfs_*_amd64.deb "$SCRIPT_DIR"/3rdparty/zfs/lib*.deb
-  install_or_upgrade libzfs4linux
+	sudo apt install "${args[@]}"
+#  install_or_upgrade libzfs4linux
 	set +x
 }
 
@@ -479,7 +542,7 @@ function check_wslu {
         fi
 
         # Otherwise, it's from wslu package – check if we need to upgrade
-        if dpkg -l | grep -q "^ii.*wslu"; then
+        if apt_installed "wslu"; then
             echo "wslu package is installed. Checking for updates..."
             if [[ $wsl_version -eq 2 ]]; then
                 # On WSL2, wslu may be optional; only upgrade if network is available
@@ -576,19 +639,21 @@ function make_all {
 	enable_zfs_in_kernel
 	build_zfs_enabled_kernel
 	install_kernel_modules
+	[[ -d "$ZFS_AUTO_SNAPSHOT_DIR/.git" ]] && build_zfs_auto_snapshot
 }
 
 function make_clean {
 	echo ""
 	echo "Cleaning source:"
 	echo ""
-	cd "$WSL_KERNEL_SOURCE_DIR"
-	git reset --hard
-	git clean -fdx
-	make clean
-	cd "$ZFS_SOURCE_DIR"
-	git reset --hard
-	git clean -fdx
+	local dir
+	for dir in "$WSL_KERNEL_SOURCE_DIR" "$ZFS_SOURCE_DIR" "$ZFS_AUTO_SNAPSHOT_DIR"; do
+	  [ -d "$dir" ] || continue
+	  echo "- $dir ..."
+	  cd "$dir"
+	  git reset --hard
+	  git clean -fdx
+  done
 }
 
 function version_kernel {
@@ -845,10 +910,19 @@ fi
 		log_header "$1"
 		shift
 		{
-		  git pull && git submodule update --init --recursive --progress
+		  git pull && git submodule update --init --recursive --progress && {
+		    ! [ -d "$ZFS_AUTO_SNAPSHOT_DIR"] || git -C "$ZFS_AUTO_SNAPSHOT_DIR" pull
+		  }
     } 2>&1 | tee -a "$LOG_FILE"
     log_footer ${PIPESTATUS[0]}
 		;;
+
+  build-zfs-auto-snapshot)
+		log_header "$1"
+    shift
+    build_zfs_auto_snapshot 2>&1 | tee -a "$LOG_FILE"
+    log_footer ${PIPESTATUS[0]}
+    ;;
 
 	wslu)
 		log_header "$1"
