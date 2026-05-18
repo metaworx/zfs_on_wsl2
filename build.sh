@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.4.0
+SCRIPT_VERSION=1.4.1
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -593,18 +593,6 @@ function check_wslu {
             return 0
         fi
 
-        # Otherwise, it's from wslu package – check if we need to upgrade
-        if apt_installed "wslu"; then
-            echo "wslu package is installed. Checking for updates..."
-            if [[ $wsl_version -eq 2 ]]; then
-                # On WSL2, wslu may be optional; only upgrade if network is available
-                if ping -c 1 8.8.8.8 &>/dev/null; then
-                    sudo apt update 2>/dev/null && install_or_upgrade wslu
-                else
-                    echo "No network connectivity. Skipping wslu upgrade."
-                fi
-            fi
-        fi
         return 0
     fi
 
