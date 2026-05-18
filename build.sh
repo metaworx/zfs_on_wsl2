@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.3.0
+SCRIPT_VERSION=1.4.0
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -236,6 +236,58 @@ function prepare_kernel_config {
 	scripts/config --disable NFSD_V3
 	# Set stack initialisation to NONE (this will automatically disable the ALL_PATTERN/ALL_ZERO variants)
 	scripts/config --set-val INIT_STACK none
+
+  # Docker compatibility
+  scripts/config --enable CONFIG_BRIDGE
+  scripts/config --enable CONFIG_BRIDGE_NETFILTER
+  scripts/config --enable CONFIG_BRIDGE_IGMP_SNOOPING
+  scripts/config --enable CONFIG_BRIDGE_VLAN_FILTERING
+
+  # Netfilter core
+  scripts/config --enable CONFIG_NETFILTER
+  scripts/config --enable CONFIG_NETFILTER_ADVANCED
+  scripts/config --enable CONFIG_NF_CONNTRACK
+  scripts/config --enable CONFIG_NF_NAT
+  scripts/config --enable CONFIG_NF_TABLES
+  scripts/config --enable CONFIG_NF_TABLES_IPV4
+  scripts/config --enable CONFIG_NF_TABLES_IPV6
+  scripts/config --enable CONFIG_NF_TABLES_ARP
+  scripts/config --enable CONFIG_NETFILTER_XTABLES
+
+  # IPv4 iptables
+  scripts/config --enable CONFIG_IP_NF_IPTABLES
+  scripts/config --enable CONFIG_IP_NF_FILTER
+  scripts/config --enable CONFIG_IP_NF_NAT
+  scripts/config --enable CONFIG_IP_NF_RAW
+  scripts/config --enable CONFIG_IP_NF_MANGLE
+  scripts/config --enable CONFIG_IP_NF_TARGET_MASQUERADE
+  scripts/config --enable CONFIG_IP_NF_TARGET_REJECT
+
+  # IPv6 iptables
+  scripts/config --enable CONFIG_IP6_NF_IPTABLES
+  scripts/config --enable CONFIG_IP6_NF_FILTER
+  scripts/config --enable CONFIG_IP6_NF_NAT
+
+  # Netfilter extensions Docker needs
+  scripts/config --enable CONFIG_NETFILTER_XT_MATCH_ADDRTYPE
+  scripts/config --enable CONFIG_NETFILTER_XT_MATCH_CONNTRACK
+  scripts/config --enable CONFIG_NETFILTER_XT_MATCH_COMMENT
+  scripts/config --enable CONFIG_NETFILTER_XT_MATCH_MULTIPORT
+  scripts/config --enable CONFIG_NETFILTER_XT_MATCH_IPRANGE
+  scripts/config --enable CONFIG_NETFILTER_XT_MATCH_STATE
+  scripts/config --enable CONFIG_NETFILTER_XT_MATCH_TCPMSS
+  scripts/config --enable CONFIG_NETFILTER_XT_TARGET_MASQUERADE
+  scripts/config --enable CONFIG_NETFILTER_XT_TARGET_TCPMSS
+  scripts/config --enable CONFIG_NETFILTER_XT_TARGET_LOG
+
+  # Nftables NAT chain support
+  scripts/config --enable CONFIG_NFT_NAT
+  scripts/config --enable CONFIG_NFT_MASQ
+  scripts/config --enable CONFIG_NFT_CHAIN_NAT
+
+  # Additional bridge support
+  scripts/config --enable CONFIG_BRIDGE_NF_EBTABLES
+  scripts/config --enable CONFIG_IP_NF_ARPTABLES
 
 	# Force the changes to take effect and resolve any new dependencies
 	make olddefconfig >/dev/null 2>&1
