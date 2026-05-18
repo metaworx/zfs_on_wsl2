@@ -6,7 +6,7 @@
 ### Syntax
 
 ```bash
-./build.sh [ command [ arguments ] ]
+./build.sh [options] [ command [arguments] ]
 ```
 
 
@@ -17,6 +17,8 @@
     clean           # Clean up source code
 
     build           # Build kernel from source
+
+    kernel-config   # Prepare the kernel config
 
     install [ {KERNEL_TARGET_DIR} [ {KERNEL_SUFFIX} ] ]
                     #
@@ -42,11 +44,24 @@
 
     env             # Install building environment
 
+    pycheck         # Check Python paths without doing a full build
+
     help            # Show this help
 
     info            # Show information about directories and source versions
 
     version         # Show the script's version
+
+
+### Logging Options
+
+    --no-log         # Disable logging (output only to console)
+    --log <file>     # Write log to specified file path
+    --log-dir <path> # Write log to directory with auto-generated filename
+
+    Log files are created automatically for commands: build, kernel-config, debs, env, install, update, wslu, pycheck
+    Default log format: {ISO-date}_{command}.log in script directory
+
 
 ## Step-by-step instructions to build the kernel
 
