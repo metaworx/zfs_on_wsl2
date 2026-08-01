@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.4.1
+SCRIPT_VERSION=1.4.2
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -236,6 +236,8 @@ function prepare_kernel_config {
 	scripts/config --disable NFSD_V3
 	# Set stack initialisation to NONE (this will automatically disable the ALL_PATTERN/ALL_ZERO variants)
 	scripts/config --set-val INIT_STACK none
+  # Direct-X
+  scripts/config --enable CONFIG_DRM_HYPERV
 
   # Docker compatibility
   scripts/config --enable CONFIG_BRIDGE
