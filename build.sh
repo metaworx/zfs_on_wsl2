@@ -287,6 +287,7 @@ function prepare_kernel_config {
   scripts/config --enable CONFIG_NFT_NAT
   scripts/config --enable CONFIG_NFT_MASQ
   scripts/config --enable CONFIG_NFT_CHAIN_NAT
+  scripts/config --enable CONFIG_NFT_COMPAT
 
   # Additional bridge support
   scripts/config --enable CONFIG_BRIDGE_NF_EBTABLES
