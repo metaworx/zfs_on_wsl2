@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.4.4
+SCRIPT_VERSION=1.4.5
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -14,6 +14,8 @@ ZFS_SOURCE_DIR=${SUBMODULE_PATH}/zfs
 ZFS_AUTO_SNAPSHOT_DIR=${SUBMODULE_PATH}/zfs-auto-snapshot
 
 PARALLEL_THREADS=$(/usr/bin/nproc --all)
+
+WSL_KERNEL_VERSION=""
 
 # Logging variables
 declare -g LOG_DIR=""
@@ -701,13 +703,8 @@ function make_clean {
 }
 
 function version_kernel {
-	if [ -r 3rdparty/WSL2-Linux-Kernel/.config ]; then
-		grep "Kernel Configuration" 3rdparty/WSL2-Linux-Kernel/.config | cut -d" " -f3
-	elif [ -r 3rdparty/WSL2-Linux-Kernel/Microsoft/config-wsl ]; then
-		grep "Kernel Configuration" 3rdparty/WSL2-Linux-Kernel/Microsoft/config-wsl | cut -d" " -f3
-	else
-		echo "N/A"
-	fi
+	WSL_KERNEL_VERSION=$(cd 3rdparty/WSL2-Linux-Kernel && make kernelversion)
+	echo "${WSL_KERNEL_VERSION:-N/A}"
 }
 
 function version_zfs {
