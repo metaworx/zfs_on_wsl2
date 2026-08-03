@@ -266,6 +266,7 @@ function prepare_kernel_config {
 	scripts/config --enable CONFIG_IP_NF_RAW
 	scripts/config --enable CONFIG_IP_NF_MANGLE
 	scripts/config --enable CONFIG_IP_NF_TARGET_MASQUERADE
+	scripts/config --enable CONFIG_IP_NF_TARGET_REDIRECT
 	scripts/config --enable CONFIG_IP_NF_TARGET_REJECT
 
 	# IPv6 iptables
@@ -282,12 +283,14 @@ function prepare_kernel_config {
 	scripts/config --enable CONFIG_NETFILTER_XT_MATCH_STATE
 	scripts/config --enable CONFIG_NETFILTER_XT_MATCH_TCPMSS
 	scripts/config --enable CONFIG_NETFILTER_XT_TARGET_MASQUERADE
+	scripts/config --enable CONFIG_NETFILTER_XT_TARGET_REDIRECT
 	scripts/config --enable CONFIG_NETFILTER_XT_TARGET_TCPMSS
 	scripts/config --enable CONFIG_NETFILTER_XT_TARGET_LOG
 
 	# Nftables NAT chain support
 	scripts/config --enable CONFIG_NFT_NAT
 	scripts/config --enable CONFIG_NFT_MASQ
+	scripts/config --enable CONFIG_NFT_REDIR
 	scripts/config --enable CONFIG_NFT_CHAIN_NAT
 	scripts/config --enable CONFIG_NFT_COMPAT
 
