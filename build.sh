@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.4.2
+SCRIPT_VERSION=1.4.4
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -229,6 +229,7 @@ function prepare_kernel_config {
 	scripts/config --enable NF_FLOW_TABLE_PROCFS
 	# Enable ZFS (the main point)
 	scripts/config --enable ZFS
+	scripts/config --disable ZFS_DEBUG
 	# Disable NFSD v2 (since v2 ACL is removed)
 	scripts/config --disable NFSD_V2
 	scripts/config --disable NFSD_V2_ACL
