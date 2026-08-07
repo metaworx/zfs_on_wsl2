@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.4.5
+SCRIPT_VERSION=1.5.0
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -184,12 +184,12 @@ function install_build_env {
 }
 
 function prepare_kernel {
+	prepare_kernel_config
+
 	echo ""
-	echo "Preparing kernel:"
+	echo "Preparing kernel: $WSL_KERNEL_SOURCE_DIR"
 	echo ""
 	cd $WSL_KERNEL_SOURCE_DIR
-
-	prepare_kernel_config
 
 	make -j${PARALLEL_THREADS} prepare scripts
 	make -j${PARALLEL_THREADS} prepare
@@ -213,95 +213,202 @@ function prepare_kernel_config {
 		exit 1
 	fi
 
+	echo "Checking default kernel config dependencies ..."
+
 	# First, ensure that all dependencies are resolved
 	make olddefconfig >/dev/null 2>&1
 
+	echo "Updating kernel configuration via scripts/config ..."
+
 	# Disable KCSAN (kernel concurrency sanitizer)
 	scripts/config --disable KCSAN
+
 	# Enable SLS (straight-line speculation)
 	scripts/config --enable SLS
+
 	# Enable zero-call-used-regs
 	scripts/config --enable ZERO_CALL_USED_REGS
+
 	# Enable CPU mitigations (mitigations for Spectre, Meltdown, etc.)
 	scripts/config --enable CPU_MITIGATIONS
 	scripts/config --enable MITIGATION_RFDS
 	scripts/config --enable MITIGATION_SPECTRE_BHI
 	scripts/config --enable ARCH_CONFIGURES_CPU_MITIGATIONS
-	# Enable NF_FLOW_TABLE_PROCFS
-	scripts/config --enable NF_FLOW_TABLE_PROCFS
-	# Enable ZFS (the main point)
-	scripts/config --enable ZFS
-	scripts/config --disable ZFS_DEBUG
+
+	# Direct-X
+	scripts/config --enable DRM_HYPERV
+    
+	# ------------------------------------------------------------------
+	# Required options that must end up as =y
+	# ------------------------------------------------------------------
+	local -a REQUIRED_Y=(
+		# Enable NF_FLOW_TABLE_PROCFS
+		NF_FLOW_TABLE
+		NF_FLOW_TABLE_PROCFS
+
+		# Bridge
+		BRIDGE
+		BRIDGE_NETFILTER
+		BRIDGE_IGMP_SNOOPING
+		BRIDGE_VLAN_FILTERING
+		BRIDGE_NF_EBTABLES
+
+		# Netfilter core
+		NETFILTER
+		NETFILTER_ADVANCED
+		NF_CONNTRACK
+		NF_NAT
+		NF_TABLES
+		NF_TABLES_IPV4
+		NF_TABLES_IPV6
+		NF_TABLES_ARP
+		NETFILTER_XTABLES
+
+		# IPv4 iptables
+		IP_NF_IPTABLES
+		IP_NF_IPTABLES_LEGACY
+		IP_NF_FILTER
+		IP_NF_NAT
+		IP_NF_RAW
+		IP_NF_MANGLE
+		IP_NF_TARGET_MASQUERADE
+		IP_NF_TARGET_REDIRECT
+		IP_NF_TARGET_REJECT
+		IP_NF_ARPTABLES
+
+		# IPv6 iptables
+		IP6_NF_IPTABLES_LEGACY
+		IP6_NF_IPTABLES
+		IP6_NF_FILTER
+		IP6_NF_NAT
+		NF_CONNTRACK
+
+		# xtables matches / targets
+		NETFILTER_XT_MATCH_ADDRTYPE
+		NETFILTER_XT_MATCH_CONNTRACK
+		NETFILTER_XT_MATCH_COMMENT
+		NETFILTER_XT_MATCH_MULTIPORT
+		NETFILTER_XT_MATCH_IPRANGE
+		NETFILTER_XT_MATCH_STATE
+		NETFILTER_XT_MATCH_TCPMSS
+		NETFILTER_XT_TARGET_MASQUERADE
+		NETFILTER_XT_TARGET_REDIRECT
+		NETFILTER_XT_TARGET_TCPMSS
+		NETFILTER_XT_TARGET_LOG
+
+		# nftables NAT
+		NFT_NAT
+		NFT_MASQ
+		NFT_REDIR
+		NFT_COMPAT
+	)
+
+	# ------------------------------------------------------------------
+	# Enable all required options
+	# ------------------------------------------------------------------
+	kernel_enable "${REQUIRED_Y[@]}"
+
 	# Disable NFSD v2 (since v2 ACL is removed)
 	scripts/config --disable NFSD_V2
 	scripts/config --disable NFSD_V2_ACL
+
 	# Remove NFSD v3 line (it's optional, but we leave it unchanged unless explicitly disabled)
 	scripts/config --disable NFSD_V3
+
 	# Set stack initialisation to NONE (this will automatically disable the ALL_PATTERN/ALL_ZERO variants)
 	scripts/config --set-val INIT_STACK none
-	# Direct-X
-	scripts/config --enable CONFIG_DRM_HYPERV
 
-	# Docker compatibility
-	scripts/config --enable CONFIG_BRIDGE
-	scripts/config --enable CONFIG_BRIDGE_NETFILTER
-	scripts/config --enable CONFIG_BRIDGE_IGMP_SNOOPING
-	scripts/config --enable CONFIG_BRIDGE_VLAN_FILTERING
+	echo "Kernel configuration updated via scripts/config. Re-checking dependencies ..."
 
-	# Netfilter core
-	scripts/config --enable CONFIG_NETFILTER
-	scripts/config --enable CONFIG_NETFILTER_ADVANCED
-	scripts/config --enable CONFIG_NF_CONNTRACK
-	scripts/config --enable CONFIG_NF_NAT
-	scripts/config --enable CONFIG_NF_TABLES
-	scripts/config --enable CONFIG_NF_TABLES_IPV4
-	scripts/config --enable CONFIG_NF_TABLES_IPV6
-	scripts/config --enable CONFIG_NF_TABLES_ARP
-	scripts/config --enable CONFIG_NETFILTER_XTABLES
+	# ------------------------------------------------------------------
+	# Verify and force all required options to y
+	# ------------------------------------------------------------------
+	kernel_force_builtin "${REQUIRED_Y[@]}"
 
-	# IPv4 iptables
-	scripts/config --enable CONFIG_IP_NF_IPTABLES
-	scripts/config --enable CONFIG_IP_NF_FILTER
-	scripts/config --enable CONFIG_IP_NF_NAT
-	scripts/config --enable CONFIG_IP_NF_RAW
-	scripts/config --enable CONFIG_IP_NF_MANGLE
-	scripts/config --enable CONFIG_IP_NF_TARGET_MASQUERADE
-	scripts/config --enable CONFIG_IP_NF_TARGET_REDIRECT
-	scripts/config --enable CONFIG_IP_NF_TARGET_REJECT
+	echo "Kernel configuration is ready."
+}
 
-	# IPv6 iptables
-	scripts/config --enable CONFIG_IP6_NF_IPTABLES
-	scripts/config --enable CONFIG_IP6_NF_FILTER
-	scripts/config --enable CONFIG_IP6_NF_NAT
+function kernel_force_builtin {
+	cd $WSL_KERNEL_SOURCE_DIR
 
-	# Netfilter extensions Docker needs
-	scripts/config --enable CONFIG_NETFILTER_XT_MATCH_ADDRTYPE
-	scripts/config --enable CONFIG_NETFILTER_XT_MATCH_CONNTRACK
-	scripts/config --enable CONFIG_NETFILTER_XT_MATCH_COMMENT
-	scripts/config --enable CONFIG_NETFILTER_XT_MATCH_MULTIPORT
-	scripts/config --enable CONFIG_NETFILTER_XT_MATCH_IPRANGE
-	scripts/config --enable CONFIG_NETFILTER_XT_MATCH_STATE
-	scripts/config --enable CONFIG_NETFILTER_XT_MATCH_TCPMSS
-	scripts/config --enable CONFIG_NETFILTER_XT_TARGET_MASQUERADE
-	scripts/config --enable CONFIG_NETFILTER_XT_TARGET_REDIRECT
-	scripts/config --enable CONFIG_NETFILTER_XT_TARGET_TCPMSS
-	scripts/config --enable CONFIG_NETFILTER_XT_TARGET_LOG
-
-	# Nftables NAT chain support
-	scripts/config --enable CONFIG_NFT_NAT
-	scripts/config --enable CONFIG_NFT_MASQ
-	scripts/config --enable CONFIG_NFT_REDIR
-	scripts/config --enable CONFIG_NFT_CHAIN_NAT
-	scripts/config --enable CONFIG_NFT_COMPAT
-
-	# Additional bridge support
-	scripts/config --enable CONFIG_BRIDGE_NF_EBTABLES
-	scripts/config --enable CONFIG_IP_NF_ARPTABLES
-
-	# Force the changes to take effect and resolve any new dependencies
+	# ------------------------------------------------------------------
+	# Resolve new dependencies
+	# ------------------------------------------------------------------
+	echo "Re-checking kernel dependencies ..."
 	make olddefconfig >/dev/null 2>&1
 
-	echo "Kernel configuration updated via scripts/config."
+	# ------------------------------------------------------------------
+	# 6. Verification – abort if any required option is not =y
+	# ------------------------------------------------------------------
+	local -i failed=0
+
+	for opt in "$@"; do
+		if ! grep -qE "^(CONFIG_)?${opt}=y$" .config; then
+			failed=1
+			break
+		fi
+	done
+	
+	if (( failed )); then
+		# ------------------------------------------------------------------
+		# 5. Force the critical ones AGAIN (olddefconfig likes to demote them)
+		# ------------------------------------------------------------------
+		for opt in "$@"; do
+			echo "Forcing built-in $opt ..."
+			scripts/config --set-val "$opt" y
+		done
+
+		echo "Re-checking dependencies ..."
+
+		# ------------------------------------------------------------------
+		# Resolve new dependencies
+		# ------------------------------------------------------------------
+		make olddefconfig >/dev/null 2>&1
+	fi
+
+
+	# ------------------------------------------------------------------
+	# 6. Verification – abort if any required option is not =y
+	# ------------------------------------------------------------------
+	failed=0
+	echo ""
+	echo "Verifying required kernel options are built-in (=y):"
+	echo "--------------------------------------------------"
+
+	for opt in "$@"; do
+		if grep -qE "^(CONFIG_)?${opt}=y$" .config; then
+			printf "  %-45s OK\n" "$opt"
+		else
+			local actual
+			actual=$(grep -E "^${opt}=" .config || echo "NOT SET")
+			printf "  %-45s FAILED (%s)\n" "$opt" "$actual"
+			failed=1
+		fi
+	done
+
+	echo "--------------------------------------------------"
+
+	if (( failed )); then
+		echo ""
+		echo "ERROR: Some required kernel options could not be forced to =y."
+		echo "       Please investigate the dependencies above."
+		exit 1
+	fi
+
+	echo ""
+	echo "All required options are set to =y."
+	echo ""
+}
+
+function kernel_enable {
+	# ------------------------------------------------------------------
+	# Force all required options to y
+	# ------------------------------------------------------------------
+	local opt
+	for opt in "$@"; do
+		echo "Enabling $opt ..."
+		scripts/config --enable "$opt"
+	done
 }
 
 function prepare_zfs {
@@ -315,9 +422,9 @@ function prepare_zfs {
 }
 
 function copy_zfs_builtin {
-	echo ""
-	echo "Copying ZFS module to kernel source:"
-	echo ""
+    echo ""
+    echo "Injecting OpenZFS into kernel source (for built-in support):"
+    echo ""
 	cd $ZFS_SOURCE_DIR
 	./copy-builtin $WSL_KERNEL_SOURCE_DIR
 }
@@ -331,12 +438,21 @@ function build_zfs {
 	make deb-utils
 }
 
-function enable_zfs_in_kernel {
+function inject_zfs_into_kernel {
+    prepare_zfs
+    copy_zfs_builtin
+
 	echo ""
 	echo "Enabling ZFS in kernel config:"
 	echo ""
 	cd $WSL_KERNEL_SOURCE_DIR
-	echo "CONFIG_ZFS=y" >> .config
+	
+	kernel_enable ZFS
+
+	# ZFS-related (activation happens in )
+	scripts/config --disable ZFS_DEBUG
+	
+	kernel_force_builtin CONFIG_ZFS
 }
 
 function build_zfs_enabled_kernel {
@@ -682,10 +798,8 @@ function make_all {
 	install_build_env
 	check_python_paths
 	prepare_kernel
-	prepare_zfs
-	copy_zfs_builtin
+	inject_zfs_into_kernel
 	build_zfs
-	enable_zfs_in_kernel
 	build_zfs_enabled_kernel
 	install_kernel_modules
 	[[ -d "$ZFS_AUTO_SNAPSHOT_DIR/.git" ]] && build_zfs_auto_snapshot
@@ -920,6 +1034,13 @@ fi
 		log_header "$1"
 		shift
 		prepare_kernel_config 2>&1 | tee -a "$LOG_FILE"
+		log_footer ${PIPESTATUS[0]}
+		;;
+
+	zfs-config)
+		log_header "$1"
+		shift
+		prepare_kernel && inject_zfs_into_kernel 2>&1 | tee -a "$LOG_FILE"
 		log_footer ${PIPESTATUS[0]}
 		;;
 
