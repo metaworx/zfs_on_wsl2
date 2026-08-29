@@ -26,6 +26,10 @@ they are what a given build actually produces.
 
 ### Changed
 
+- Log files are written to `logs/` instead of the repository root. `--log-dir`,
+  `--log` and `--no-log` are unaffected. The root `.gitignore`, which existed
+  only to hide those logs, is gone with them: whatever shows up in `git status`
+  now is real.
 - `README.md` describes this repository as the metaworx fork of
   `multiheaded/zfs_on_wsl2` and clones from it rather than from upstream, with
   `--recurse-submodules` so the kernel and OpenZFS sources arrive with the

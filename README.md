@@ -69,7 +69,7 @@ from the upstream project and is not maintained.
     --log-dir <path> # Write log to directory with auto-generated filename
 
     Log files are created automatically for commands: build, kernel-config, debs, env, install, update, wslu, pycheck
-    Default log format: {ISO-date}_{command}.log in script directory
+    Default log location: logs/{ISO-date}_{command}.log under the script directory
 
 
 ## Step-by-step instructions to build the kernel

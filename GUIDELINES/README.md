@@ -52,7 +52,7 @@ Editing a generated file is wasted work — change the fragment and re-run
 ---
 
 
-# ZFS-on-Linux Kernel Builder — Project Contract (v1.0.0)
+# ZFS-on-Linux Kernel Builder — Project Contract (v1.1.0)
 
 ## 1. Project Facts
 
@@ -142,10 +142,12 @@ Editing a generated file is wasted work — change the fragment and re-run
 ### 3.5 Logs
 
 - `build`, `kernel-config`, `debs`, `env`, `install`, `update`, `wslu` and
-  `pycheck` write `{ISO-date}_{command}.log`, by default **into the repository
-  root**, where the root `.gitignore` keeps them out of git. Pass
-  `--log-dir <path>` to collect them elsewhere, or `--no-log` where the output
-  is not worth keeping.
+  `pycheck` write `{ISO-date}_{command}.log` into `logs/`, which ignores its own
+  `*.log` and is created on demand. `--log-dir <path>` collects them elsewhere,
+  `--log <file>` names one outright, and `--no-log` writes none. There is no
+  root `.gitignore` any more: nothing outside `logs/` is expected to be
+  untracked-but-ignored, so anything that shows up in `git status` is something
+  to deal with rather than to filter out.
 
 ### 3.6 Branches
 
@@ -160,6 +162,7 @@ Editing a generated file is wasted work — change the fragment and re-run
 
 | Version | Date       | Changed sections | Change type | Agent impact |
 |---------|------------|------------------|-------------|--------------|
+| v1.1.0  | 2026-08-29 | 3.5              | minor       | Logs no longer land in the repository root: `build.sh` v1.6.0 defaults `LOG_DIR` to `logs/`, and the root `.gitignore` is retired with it. An agent reading `git status` can now treat every untracked path as real, rather than assuming `*.log` noise is filtered. |
 | v1.0.0  | 2026-08-29 | 3, 5             | minor       | §3 is filled in. Six things that were only discoverable by reading `build.sh` or by breaking something are now stated: the build is WSL-only, long, and partly finishable only from Windows; `3rdparty/` changes belong in `patches/` and need `--whitespace=fix`; `clean` destroys them; the version manifest is `SCRIPT_VERSION`, and `COMMIT.md` §4.3 applies in full; indentation is tabs under `set -euo pipefail`, now carried by a root `.editorconfig`; logs default to the repository root. |
 
 ---

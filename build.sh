@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.5.0
+SCRIPT_VERSION=1.6.0
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -18,7 +18,7 @@ PARALLEL_THREADS=$(/usr/bin/nproc --all)
 WSL_KERNEL_VERSION=""
 
 # Logging variables
-declare -g LOG_DIR=""
+declare -g LOG_DIR="${SCRIPT_DIR}/logs"
 declare -g LOG_FILE="/dev/null"
 declare -gi LOG_ENABLED=1
 
@@ -865,11 +865,7 @@ function log_header {
 		# Determine log file path
 		if [[ -z "$LOG_FILE" || "$LOG_FILE" == "/dev/null" ]]; then
 			local timestamp=$(date +%Y-%m-%d_%H-%M-%S)
-			if [[ -n "$LOG_DIR" ]]; then
-				LOG_FILE="${LOG_DIR}/${timestamp}_${cmd}.log"
-			else
-				LOG_FILE="${SCRIPT_DIR}/${timestamp}_${cmd}.log"
-			fi
+			LOG_FILE="${LOG_DIR}/${timestamp}_${cmd}.log"
 		fi
 
 		# Ensure log directory exists
@@ -965,7 +961,7 @@ LOGGING OPTIONS:
     --log-dir <path> # Write log to directory with auto-generated filename
 
     Log files are created automatically for commands: build, kernel-config, debs, env, install, update, wslu, pycheck
-    Default log format: {ISO-date}_{command}.log in script directory
+    Default log location: logs/{ISO-date}_{command}.log under the script directory
 
 
 INFO:
