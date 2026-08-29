@@ -1,5 +1,14 @@
 # MS WSL2-modified Linux kernel with ZFS support
 
+This is the [metaworx fork](https://github.com/metaworx/zfs_on_wsl2) of
+[multiheaded/zfs_on_wsl2](https://github.com/multiheaded/zfs_on_wsl2), where the
+work has continued since 2023: current kernel and OpenZFS releases, an `install`
+command, logging, Docker and DirectX kernel options, and the Python-path fixes
+needed to build `pyzfs`.
+
+Development happens on `main`. `upstream/master` preserves the state inherited
+from the upstream project and is not maintained.
+
 ## Script to build the kernel from source
 
 
@@ -67,8 +76,10 @@
 
 1.  For a fresh install, get the code:
     ```bash
-    git clone https://github.com/multiheaded/zfs_on_wsl2.git && cd zfs_on_wsl2
+    git clone --recurse-submodules https://github.com/metaworx/zfs_on_wsl2.git && cd zfs_on_wsl2
     ```
+    **Note:** `--recurse-submodules` populates the `3rdparty/` sources right away; without it,
+    step 2 fetches them. \
     If you already have the repo, just run `git pull` to get any updates.\
     <br/>
 
@@ -101,16 +112,16 @@
 
 ### Option A: Automated install
 
-1. Install the kernel and update `.wslconf`
+1. Install the kernel and update `.wslconfig`
     ```bash
-    /bin/bash install
+    /bin/bash build.sh install
     ```
    **Note:** For more installation options, see the syntax of the `install` command above or in the `./build.sh help` command output. \
    <br/>
 
 2.  Install the zfs command-line utilities
     ```bash
-    /bin/bash debs
+    /bin/bash build.sh debs
     ```
     **Warning:** The installation of these binaries might fail due to missing dependencies or unresolved conflicts. \
     **Note:** It is also possible to use the zfs binaries supplied by the package maintainers of your distribution.
@@ -171,6 +182,7 @@ lsblk
 and `zfs import {pool}` or create a new pool from scratch.
 
 ## Resources:
+- Upstream project: https://github.com/multiheaded/zfs_on_wsl2
 - https://wsl.dev/wsl2-kernel-zfs/
 - https://docs.microsoft.com/de-de/windows/wsl/wsl2-mount-disk
 

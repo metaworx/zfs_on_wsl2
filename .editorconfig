@@ -1,0 +1,37 @@
+# Editor defaults for this repository.
+#
+# The submodules under 3rdparty/ each carry their own "root = true"
+# .editorconfig, so nothing here reaches the kernel or OpenZFS sources.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = tab
+indent_size = 4
+tab_width = 4
+
+[*.md]
+# Markdown gives trailing whitespace meaning - two spaces are a hard line break,
+# and the documents here use them.
+trim_trailing_whitespace = false
+indent_style = space
+indent_size = 2
+
+[*.{ini,yml,yaml,json,xml}]
+indent_style = space
+indent_size = 2
+
+[*.patch]
+# A patch is byte-exact: trimming whitespace or adding a final newline breaks
+# "git apply".
+trim_trailing_whitespace = false
+insert_final_newline = false
+indent_style = unset
+indent_size = unset
+tab_width = unset
+
+[Makefile]
+indent_style = tab

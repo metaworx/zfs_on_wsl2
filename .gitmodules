@@ -4,3 +4,6 @@
 [submodule "3rdparty/WSL2-Linux-Kernel"]
 	path = 3rdparty/WSL2-Linux-Kernel
 	url = https://github.com/microsoft/WSL2-Linux-Kernel.git
+[submodule "GUIDELINES/shared"]
+	path = GUIDELINES/shared
+	url = https://gitlab.com/metaworx/open-source/mwx-guidelines.git

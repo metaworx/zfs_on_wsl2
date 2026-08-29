@@ -13,6 +13,30 @@ they are what a given build actually produces.
 
 ## [Unreleased]
 
+### Added
+
+- `.editorconfig`, stating the indentation, line-ending and trailing-whitespace
+  rules the repository already followed in practice, and keeping `*.patch`
+  files byte-exact so `git apply` still accepts them.
+- The shared metaworx guidelines, as a submodule under `GUIDELINES/shared`,
+  from which `/AGENTS.md` and `GUIDELINES/README.md` are generated. The project
+  contract records what is specific to this repository: the build is WSL-only,
+  changes to the `3rdparty/` submodules belong in `patches/`, and
+  `./build.sh clean` destroys them.
+
+### Changed
+
+- `README.md` describes this repository as the metaworx fork of
+  `multiheaded/zfs_on_wsl2` and clones from it rather than from upstream, with
+  `--recurse-submodules` so the kernel and OpenZFS sources arrive with the
+  checkout. Work happens on `main`; `upstream/master` preserves the inherited
+  state.
+
+### Fixed
+
+- The automated install steps in `README.md` said `/bin/bash install` and
+  `/bin/bash debs`. Both were missing `build.sh`, so neither ran as written.
+
 ## [1.5.0] - 2026-08-07
 
 ### Fixed
