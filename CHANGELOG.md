@@ -24,6 +24,12 @@ they are what a given build actually produces.
   anyway. A missing space before the `]` meant the test could not be parsed, so
   it failed; the leading `!` inverted that failure into success, skipping the
   pull and exempting it from `set -e` at the same time.
+- `./build.sh info` worked only from the checkout root. `version_kernel` and
+  `version_zfs` looked for `3rdparty/` relative to the current directory, so
+  invoking the script by absolute path from anywhere else reported `N/A` for
+  OpenZFS and died on `make: *** No rule to make target 'kernelversion'`. Since
+  every logged command prints that header first, the same failure hit `build`,
+  `install` and the rest.
 
 ## [1.6.0] - 2026-08-29
 

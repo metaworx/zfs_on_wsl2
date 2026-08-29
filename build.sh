@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.6.1-wip2
+SCRIPT_VERSION=1.6.1-wip3
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -815,15 +815,15 @@ function make_clean {
 }
 
 function version_kernel {
-	WSL_KERNEL_VERSION=$(cd 3rdparty/WSL2-Linux-Kernel && make kernelversion)
+	WSL_KERNEL_VERSION=$(cd "$WSL_KERNEL_SOURCE_DIR" && make kernelversion)
 	echo "${WSL_KERNEL_VERSION:-N/A}"
 }
 
 function version_zfs {
-	if [ -r 3rdparty/zfs/META ]; then
-		grep Version: 3rdparty/zfs/META | cut -f2 -d: | xargs
-	elif [ -r 3rdparty/zfs/zfs.release ]; then
-		cat 3rdparty/zfs/zfs.release
+	if [ -r "$ZFS_SOURCE_DIR/META" ]; then
+		grep Version: "$ZFS_SOURCE_DIR/META" | cut -f2 -d: | xargs
+	elif [ -r "$ZFS_SOURCE_DIR/zfs.release" ]; then
+		cat "$ZFS_SOURCE_DIR/zfs.release"
 	else
 		echo "N/A"
 	fi
