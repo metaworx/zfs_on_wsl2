@@ -13,6 +13,14 @@ they are what a given build actually produces.
 
 ## [Unreleased]
 
+### Fixed
+
+- `build.sh install` could not create a `.wslconfig`. The block meant to write
+  one was not a heredoc, so its four lines were executed as commands and the
+  install aborted — it only ever worked on a machine that already had the file.
+  Both the creating and the appending path now write through `printf`, with
+  CRLF line endings, which is what the existing configuration files use.
+
 ## [1.6.0] - 2026-08-29
 
 ### Added

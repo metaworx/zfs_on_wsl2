@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.6.0
+SCRIPT_VERSION=1.6.1-wip1
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -550,12 +550,7 @@ function install_kernel {
 	local WSL_LINE=${KERNEL_TARGET_WIN//\\/\\\\\\\\}
 
 	if [ ! -f "$WSL_CONFIG" ]; then
-		cat > "$WSL_CONFIG" | <<<EOL
-		[wsl2]
-		kernel=$WSL_LINE
-		localhostForwarding=true
-		swap=0
-		EOL
+		printf '[wsl2]\r\nkernel=%s\r\nlocalhostForwarding=true\r\nswap=0\r\n' "$WSL_LINE" > "$WSL_CONFIG"
 
 	else
 		echo "Current WSL config:"
@@ -570,7 +565,7 @@ function install_kernel {
 			sed -i -e "s|^\s*kernel\s*=[^\n]*|# \0\nkernel=$WSL_LINE\r|i;s|^\s*#\s*kernel=\s*${WSL_LINE//\\\\\\\\/\\\\\\\\\\\?}\s*||g;/^$/d" "$WSL_CONFIG"
 		else
 			# simply add the kernel setting to the config file
-			echo "kernel=$WSL_LINE\r" >> "$WSL_CONFIG"
+			printf 'kernel=%s\r\n' "$WSL_LINE" >> "$WSL_CONFIG"
 		fi
 	fi
 
