@@ -13,6 +13,8 @@ they are what a given build actually produces.
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-08-29
+
 ### Fixed
 
 - `build.sh install` could not create a `.wslconfig`. The block meant to write

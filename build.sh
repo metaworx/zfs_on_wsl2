@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.6.1-wip3
+SCRIPT_VERSION=1.6.1
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
