@@ -52,7 +52,7 @@ Editing a generated file is wasted work — change the fragment and re-run
 ---
 
 
-# ZFS-on-Linux Kernel Builder — Project Contract (v1.1.0)
+# ZFS-on-Linux Kernel Builder — Project Contract (v1.2.0)
 
 ## 1. Project Facts
 
@@ -113,18 +113,36 @@ Editing a generated file is wasted work — change the fragment and re-run
   `3rdparty/` directory. It destroys any applied patch and any local edit there
   without asking. Confirm with the user before running it.
 
-### 3.3 Versioning
+### 3.3 Versioning and releases
 
 - The version manifest of §1 is `./build.sh info`, which reports what
   `SCRIPT_VERSION` at the top of `build.sh` says. That constant is where the
-  version is edited: a commit that changes behaviour bumps it, and the summary
-  carries the new number — `[FIX] v1.5.0 Kernel config options where NOT
-  applied`.
+  version is edited.
 - `COMMIT.md` §4.3 applies in full: a commit touching any shipped-code path of
   §1 writes or amends its `## [Unreleased]` bullet in the same commit.
   `CHANGELOG.md` starts at 1.1.0 and was reconstructed from the git history;
   everything from here on is written with the change it describes.
 - `[FIX]`/`[SECURITY]` bump the patch digit, anything else the minor digit.
+
+**One bump per release, not per commit.** The first commit after a release
+bumps the digit; each commit from there to the release marks its own state with
+a `-wipN` suffix — `1.6.1-wip1`, `-wip2`, `-wip3` — and the `[RELEASE]` drops
+it. Without the suffix, every commit after the first reports a version string
+naming a release it is not; with a bump per commit instead, the history fills
+with versions no build ever ran and no release ever contained.
+
+**A `[RELEASE]` that would promote bullets spanning more than one manifest
+version is a question for the user, not a judgement call.** `## [Unreleased]`
+can accumulate work done under several `SCRIPT_VERSION` values when an earlier
+one was bumped but never released. Cutting the later version then buries the
+earlier one's changes inside its section, and the earlier version — which may
+already be public — never appears in the changelog at all. Ask which shape is
+wanted before promoting; undoing it afterwards costs a history rewrite.
+
+**The `[RELEASE]` commit's diff is the manifest and `CHANGELOG.md`** — and
+`CHANGELOG.md` alone where the manifest already carries the number, because the
+change that earned the version bumped it on the way past. `COMMIT.md` §4.4
+describes two files; say in the body when it is one, and why.
 
 ### 3.4 Shell conventions
 
@@ -162,6 +180,7 @@ Editing a generated file is wasted work — change the fragment and re-run
 
 | Version | Date       | Changed sections | Change type | Agent impact |
 |---------|------------|------------------|-------------|--------------|
+| v1.2.0  | 2026-08-29 | 3.3              | minor       | Three release rules that were learned the expensive way. One version bump per release, with `-wipN` marking each commit's unreleased state, instead of a bump per commit. A `[RELEASE]` promoting bullets that span more than one manifest version must ask rather than decide — v1.6.0's changes were folded into v1.6.1's section and it took a history rewrite to separate them. And a release commit touches one file, not §4.4's two, where the manifest was already bumped by the change itself. |
 | v1.1.0  | 2026-08-29 | 3.5              | minor       | Logs no longer land in the repository root: `build.sh` v1.6.0 defaults `LOG_DIR` to `logs/`, and the root `.gitignore` is retired with it. An agent reading `git status` can now treat every untracked path as real, rather than assuming `*.log` noise is filtered. |
 | v1.0.0  | 2026-08-29 | 3, 5             | minor       | §3 is filled in. Six things that were only discoverable by reading `build.sh` or by breaking something are now stated: the build is WSL-only, long, and partly finishable only from Windows; `3rdparty/` changes belong in `patches/` and need `--whitespace=fix`; `clean` destroys them; the version manifest is `SCRIPT_VERSION`, and `COMMIT.md` §4.3 applies in full; indentation is tabs under `set -euo pipefail`, now carried by a root `.editorconfig`; logs default to the repository root. |
 
