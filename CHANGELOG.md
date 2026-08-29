@@ -20,6 +20,10 @@ they are what a given build actually produces.
   install aborted — it only ever worked on a machine that already had the file.
   Both the creating and the appending path now write through `printf`, with
   CRLF line endings, which is what the existing configuration files use.
+- `build.sh update` never pulled `zfs-auto-snapshot`, and reported success
+  anyway. A missing space before the `]` meant the test could not be parsed, so
+  it failed; the leading `!` inverted that failure into success, skipping the
+  pull and exempting it from `set -e` at the same time.
 
 ## [1.6.0] - 2026-08-29
 

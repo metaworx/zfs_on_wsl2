@@ -3,7 +3,7 @@
 # Fail on errors, undefined variables, or command piping errors
 set -euo pipefail
 
-SCRIPT_VERSION=1.6.1-wip1
+SCRIPT_VERSION=1.6.1-wip2
 SCRIPT_PATH=$(readlink -f $0)
 SCRIPT_DIR=$(dirname $SCRIPT_PATH)
 
@@ -1067,7 +1067,7 @@ fi
 		shift
 		{
 			git pull && git submodule update --init --recursive --progress && {
-				! [ -d "$ZFS_AUTO_SNAPSHOT_DIR"] || git -C "$ZFS_AUTO_SNAPSHOT_DIR" pull
+				! [ -d "$ZFS_AUTO_SNAPSHOT_DIR" ] || git -C "$ZFS_AUTO_SNAPSHOT_DIR" pull
 			}
 		} 2>&1 | tee -a "$LOG_FILE"
 		log_footer ${PIPESTATUS[0]}
