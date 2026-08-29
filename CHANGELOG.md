@@ -13,6 +13,8 @@ they are what a given build actually produces.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-08-29
+
 ### Added
 
 - `.editorconfig`, stating the indentation, line-ending and trailing-whitespace
